@@ -7,11 +7,13 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", { email, password });
+      const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       onLogin(res.data.token);
     } catch (err) {
       alert("Login failed: " + (err.response?.data?.message || err.message));
