@@ -13,7 +13,7 @@ const Login = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+      const res = await axios.post(`${API_URL}api/auth/login`, { email, password });
       onLogin(res.data.token);
     } catch (err) {
       alert("Login failed: " + (err.response?.data?.message || err.message));

@@ -20,7 +20,7 @@ const Dashboard = () => {
   const fetchBalance = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/api/wallet/balance`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${API_URL}api/wallet/balance`, { headers: { Authorization: `Bearer ${token}` } });
       setBalance(res.data.balance);
     } catch (err) {
       alert("Error fetching balance: " + (err.response?.data?.message || err.message));
@@ -30,7 +30,7 @@ const Dashboard = () => {
 
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/wallet/transactions`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${API_URL}api/wallet/transactions`, { headers: { Authorization: `Bearer ${token}` } });
       setTransactions(res.data);
     } catch (err) {
       alert("Error fetching transactions: " + (err.response?.data?.message || err.message));
@@ -42,7 +42,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const res = await axios.post(
-        `${API_URL}/api/wallet/deposit`,
+        `${API_URL}api/wallet/deposit`,
         { amount: Number(amount), description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -62,7 +62,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const res = await axios.post(
-        `${API_URL}/api/wallet/withdraw`,
+        `${API_URL}api/wallet/withdraw`,
         { amount: Number(amount), description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -82,7 +82,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const res = await axios.post(
-        `${API_URL}/api/wallet/transfer`,
+        `${API_URL}api/wallet/transfer`,
         { amount: Number(amount), receiverEmail, description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
