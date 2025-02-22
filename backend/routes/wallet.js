@@ -1,24 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose"); // Import mongoose for ObjectId
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
-
-// Use a valid ObjectId for the dummy user
-const DUMMY_USER_ID = new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"); // Hardcoded valid ObjectId
+const authMiddleware = require("../middleware/authMiddleware");
 
 // Get balance
-router.get("/balance", async (req, res) => {
+router.get("/balance", authMiddleware, async (req, res) => {
   try {
-    let user = await User.findOne({ _id: DUMMY_USER_ID });
-    if (!user) {
-      user = await User.create({
-        _id: DUMMY_USER_ID, // Explicitly set the _id
-        username: "demo",
-        email: "demo@example.com",
-        balance: 1000, // Starting balance
-      });
-    }
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ balance: user.balance });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -26,18 +16,18 @@ router.get("/balance", async (req, res) => {
 });
 
 // Deposit
-router.post("/deposit", async (req, res) => {
+router.post("/deposit", authMiddleware, async (req, res) => {
   const { amount, description } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ message: "Invalid amount" });
 
   try {
-    const user = await User.findById(DUMMY_USER_ID);
+    const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
     user.balance += amount;
     await user.save();
 
     const transaction = await Transaction.create({
-      senderId: DUMMY_USER_ID,
+      senderId: req.user.id,
       amount,
       type: "deposit",
       description,
@@ -50,12 +40,12 @@ router.post("/deposit", async (req, res) => {
 });
 
 // Withdraw
-router.post("/withdraw", async (req, res) => {
+router.post("/withdraw", authMiddleware, async (req, res) => {
   const { amount, description } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ message: "Invalid amount" });
 
   try {
-    const user = await User.findById(DUMMY_USER_ID);
+    const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.balance < amount) return res.status(400).json({ message: "Insufficient funds" });
 
@@ -63,7 +53,7 @@ router.post("/withdraw", async (req, res) => {
     await user.save();
 
     const transaction = await Transaction.create({
-      senderId: DUMMY_USER_ID,
+      senderId: req.user.id,
       amount,
       type: "withdrawal",
       description,
@@ -75,40 +65,60 @@ router.post("/withdraw", async (req, res) => {
   }
 });
 
-// Transfer (to self for demo)
-router.post("/transfer", async (req, res) => {
-  const { amount, description } = req.body;
-  if (!amount || amount <= 0) return res.status(400).json({ message: "Invalid amount" });
+// Transfer
+router.post("/transfer", authMiddleware, async (req, res) => {
+  const { amount, receiverEmail, description } = req.body;
+  if (!amount || amount <= 0 || !receiverEmail) {
+    return res.status(400).json({ message: "Amount and receiver email are required" });
+  }
 
   try {
-    const user = await User.findById(DUMMY_USER_ID);
-    if (!user) return res.status(404).json({ message: "User not found" });
-    if (user.balance < amount) return res.status(400).json({ message: "Insufficient funds" });
+    const sender = await User.findById(req.user.id);
+    const receiver = await User.findOne({ email: receiverEmail });
+    if (!sender || !receiver) return res.status(404).json({ message: "User not found" });
+    if (sender.balance < amount) return res.status(400).json({ message: "Insufficient funds" });
+    if (sender._id.equals(receiver._id)) return res.status(400).json({ message: "Cannot transfer to yourself" });
 
-    user.balance -= amount;
-    await user.save();
+    sender.balance -= amount;
+    receiver.balance += amount;
+    await sender.save();
+    await receiver.save();
 
     const transaction = await Transaction.create({
-      senderId: DUMMY_USER_ID,
-      receiverId: DUMMY_USER_ID, // Self-transfer for demo
+      senderId: req.user.id,
+      receiverId: receiver._id,
       amount,
       type: "transfer",
       description,
     });
 
-    res.json({ balance: user.balance, transaction });
+    res.json({ balance: sender.balance, transaction });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Get transactions
-router.get("/transactions", async (req, res) => {
+// Get all transactions
+router.get("/transactions", authMiddleware, async (req, res) => {
   try {
     const transactions = await Transaction.find({
-      $or: [{ senderId: DUMMY_USER_ID }, { receiverId: DUMMY_USER_ID }],
+      $or: [{ senderId: req.user.id }, { receiverId: req.user.id }],
     });
     res.json(transactions);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get transaction by ID
+router.get("/transactions/:id", authMiddleware, async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+    if (!transaction) return res.status(404).json({ message: "Transaction not found" });
+    if (!transaction.senderId.equals(req.user.id) && !transaction.receiverId?.equals(req.user.id)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    res.json(transaction);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
